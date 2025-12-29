@@ -1,5 +1,5 @@
 #!/bin/sh
 
-cd /var/projects/relay
-source /var/projects/relay/venv/bin/activate
+cd /var/projects/replay
+source /var/projects/replay/venv/bin/activate
 uvicorn main:app
