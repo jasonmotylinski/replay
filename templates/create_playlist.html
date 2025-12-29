@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Playlist - Replay</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        input { padding: 10px; font-size: 16px; width: 100%; margin: 10px 0; }
+        button { padding: 10px 20px; font-size: 16px; background: #1DB954; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #1ED760; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Create Your Replay Playlist</h1>
+        <form id="playlistForm">
+            <input type="text" id="playlistName" placeholder="Enter playlist name" required>
+            <input type="hidden" id="userId" value="{{ user_id }}">
+            <button type="submit">Create Playlist</button>
+        </form>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        document.getElementById('playlistForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const playlistName = document.getElementById('playlistName').value;
+            const userId = document.getElementById('userId').value;
+
+            const response = await fetch('/playlist', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    playlist_name: playlistName,
+                    user_id: userId
+                })
+            });
+
+            const result = await response.json();
+            document.getElementById('message').innerHTML = `<p>${result.message}</p>`;
+        });
+    </script>
+</body>
+</html>
