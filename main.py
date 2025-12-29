@@ -9,8 +9,8 @@ from datetime import datetime, timedelta
 import logging
 from config import sp_oauth, setup_logging
 
-setup_logging()
-logger = logging.getLogger(__name__)
+
+logger = setup_logging()
 
 app = FastAPI()
 
@@ -33,8 +33,9 @@ async def login():
 async def callback(code: str = Query(...), db: Session = Depends(get_db)):
     logger.info("Callback received from Spotify")
     try:
-        logger.debug(f"Exchanging code for access token")
-        token_info = sp_oauth.get_access_token(code)
+        logger.debug(f"Exchanging code for access token code={code}")
+        token_info = sp_oauth.get_access_token(code, check_cache=False)
+        logger.debug(f"Token info received: {token_info}")
 
         if token_info:
             logger.debug(f"Access token obtained, fetching user info")
