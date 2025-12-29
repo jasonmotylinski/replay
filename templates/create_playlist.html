@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Create Playlist - Replay</title>
+    <title>{% if is_update %}Update Playlist - Replay{% else %}Create Playlist - Replay{% endif %}</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
         .container { max-width: 600px; margin: 0 auto; }
@@ -12,11 +12,12 @@
 </head>
 <body>
     <div class="container">
-        <h1>Create Your Replay Playlist</h1>
+        <h1>{% if is_update %}Update Your Replay Playlist{% else %}Create Your Replay Playlist{% endif %}</h1>
         <form id="playlistForm">
-            <input type="text" id="playlistName" placeholder="Enter playlist name" required>
+            <input type="text" id="playlistName" value="{{ playlist_name }}" required>
             <input type="hidden" id="userId" value="{{ user_id }}">
-            <button type="submit">Create Playlist</button>
+            <input type="hidden" id="isUpdate" value="{{ is_update|lower }}">
+            <button type="submit">{% if is_update %}Update Playlist{% else %}Create Playlist{% endif %}</button>
         </form>
         <div id="message"></div>
     </div>
@@ -26,20 +27,32 @@
             e.preventDefault();
             const playlistName = document.getElementById('playlistName').value;
             const userId = document.getElementById('userId').value;
+            const isUpdate = document.getElementById('isUpdate').value === 'true';
 
-            const response = await fetch('/playlist', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: new URLSearchParams({
-                    playlist_name: playlistName,
-                    user_id: userId
-                })
-            });
+            try {
+                const response = await fetch('/playlist', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        playlist_name: playlistName,
+                        user_id: userId
+                    })
+                });
 
-            const result = await response.json();
-            document.getElementById('message').innerHTML = `<p>${result.message}</p>`;
+                if (response.ok) {
+                    const result = await response.json();
+                    // Redirect to success page with playlist_id and action
+                    const action = isUpdate ? 'update' : 'create';
+                    window.location.href = `/playlist-success?playlist_id=${result.playlist_id}&action=${action}`;
+                } else {
+                    const error = await response.json();
+                    document.getElementById('message').innerHTML = `<p style="color: red;">Error: ${error.detail}</p>`;
+                }
+            } catch (error) {
+                document.getElementById('message').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
         });
     </script>
 </body>
