@@ -18,6 +18,9 @@ class User(Base):
     access_token = Column(String)
     refresh_token = Column(String)
     token_expires_at = Column(DateTime)
+    # Set when Spotify rejects the refresh token (revoked / invalid_grant).
+    # Non-null means the user must re-authenticate via /login; cleared on success.
+    reauth_required_at = Column(DateTime, nullable=True)
 
 class Playlist(Base):
     __tablename__ = "playlists"

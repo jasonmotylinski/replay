@@ -59,6 +59,8 @@ async def callback(code: str = Query(...), db: Session = Depends(get_db)):
                 user.access_token = token_info['access_token']
                 user.refresh_token = token_info.get('refresh_token')
                 user.token_expires_at = datetime.utcnow() + timedelta(seconds=token_info['expires_in'])
+                # Fresh login supersedes any prior revoked-token flag.
+                user.reauth_required_at = None
 
             db.commit()
             logger.info(f"User saved to database: user_id={user.id}")

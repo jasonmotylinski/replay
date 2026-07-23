@@ -6,6 +6,7 @@ Can be run via cron job.
 import logging
 from datetime import datetime, timedelta
 import spotipy
+from spotipy.oauth2 import SpotifyOauthError
 from config import sp_oauth, setup_logging
 from models import SessionLocal, User, Playlist
 
@@ -15,14 +16,38 @@ logger = logging.getLogger(__name__)
 MAX_PLAYLIST_CAPACITY = 100
 
 
+class ReauthRequired(Exception):
+    """Raised when a user's Spotify refresh token is no longer valid.
+
+    The token has been revoked, so no amount of retrying will help; the user
+    must log in again via /login to mint a fresh refresh token.
+    """
+
+
 def refresh_user_token_if_expired(db, user):
     """Refresh user's Spotify token if it has expired."""
     if user.token_expires_at and user.token_expires_at < datetime.utcnow():
         logger.debug(f"Token expired for user {user.id}, refreshing")
-        token_info = sp_oauth.refresh_access_token(user.refresh_token)
+        try:
+            token_info = sp_oauth.refresh_access_token(user.refresh_token)
+        except SpotifyOauthError as e:
+            # invalid_grant means Spotify revoked the refresh token. Flag the
+            # user for re-auth and skip; anything else is likely transient, so
+            # let it propagate to be retried on the next run.
+            if getattr(e, "error", None) == "invalid_grant":
+                user.reauth_required_at = datetime.utcnow()
+                db.commit()
+                raise ReauthRequired(
+                    f"user {user.id} ({user.spotify_id}) must re-authenticate "
+                    f"at /login (refresh token revoked)"
+                ) from e
+            raise
         user.access_token = token_info['access_token']
         user.refresh_token = token_info.get('refresh_token', user.refresh_token)
         user.token_expires_at = datetime.utcnow() + timedelta(seconds=token_info['expires_in'])
+        # Recovered (e.g. user re-authed) — clear any stale re-auth flag.
+        if user.reauth_required_at is not None:
+            user.reauth_required_at = None
         db.commit()
         logger.debug(f"Token refreshed for user {user.id}")
 
@@ -163,9 +188,17 @@ def update_playlists():
         logger.debug(f"Found {len(users)} users to update")
 
         for user in users:
+            if user.reauth_required_at is not None:
+                logger.warning(
+                    f"Skipping user {user.id} ({user.spotify_id}); awaiting re-auth "
+                    f"since {user.reauth_required_at:%Y-%m-%d %H:%M} UTC"
+                )
+                continue
             try:
                 logger.debug(f"Processing user: id={user.id}, spotify_id={user.spotify_id}")
                 update_user_playlists(db, user)
+            except ReauthRequired as e:
+                logger.warning(str(e))
             except Exception as e:
                 logger.exception(f"Error updating playlists for user {user.id}: {e}")
 
